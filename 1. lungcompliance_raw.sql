@@ -14,9 +14,8 @@ with vw0 as
       ,'Static Compliance'
   )
   group by patientunitstayid, respchartvaluelabel, respchartoffset
-  having count(distinct respchartvalue)<=1
 )
--- get the last lab to be revised
+
 , vw1 as
 (
   select
