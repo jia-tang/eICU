@@ -1,5 +1,5 @@
-drop table if exists `ync-capstones.Jia.lungcompliance_raw`;
-create table `ync-capstones.Jia.lungcompliance_raw` as
+drop view if exists `ync-capstones.Jia.lungcompliance_raw`;
+create view `ync-capstones.Jia.lungcompliance_raw` as
 with vw0 as
 (
   select
