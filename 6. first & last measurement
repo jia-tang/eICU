@@ -1,0 +1,35 @@
+-- First measurement
+drop table if exists `ync-capstones.Jia.first_measurement`;
+create table  `ync-capstones.Jia.first_measurement` as
+with v1 as(
+select patientunitstayid,pf_offset,lung_offset, pfratio, ARDS_severity, lung_compliance, mortality
+,ROW_NUMBER() OVER (partition by patientunitstayid order by lung_offset ) as firstRowlung
+from `ync-capstones.Jia.combined_pf_compliance` ),
+
+v2 as(
+select patientunitstayid,pf_offset,lung_offset, pfratio, ARDS_severity, lung_compliance, mortality
+, ROW_NUMBER() OVER (partition by patientunitstayid order by pf_offset ) as firstRowpf
+from v1
+where firstRowlung=1 )
+
+select patientunitstayid,pf_offset,lung_offset, pfratio, ARDS_severity, lung_compliance, mortality from v2
+where firstRowpf = 1 -- instead of getting the first pf, is it possible to get the pf that is cloesest to lung_offset?
+order by patientunitstayid;
+
+-- Last measurement
+drop table if exists `ync-capstones.Jia.last_measurement`;
+create table  `ync-capstones.Jia.last_measurement` as
+with v1 as(
+select patientunitstayid,pf_offset,lung_offset, pfratio, ARDS_severity, lung_compliance, mortality
+,ROW_NUMBER() OVER (partition by patientunitstayid order by lung_offset DESC) as lastRowlung
+from `ync-capstones.Jia.combined_pf_compliance` ),
+
+v2 as(
+select patientunitstayid,pf_offset,lung_offset, pfratio, ARDS_severity, lung_compliance, mortality
+, ROW_NUMBER() OVER (partition by patientunitstayid order by pf_offset DESC) as lastRowpf
+from v1
+where lastRowlung=1 )
+
+select patientunitstayid,pf_offset,lung_offset, pfratio, ARDS_severity, lung_compliance, mortality from v2
+where lastRowpf = 1 
+order by patientunitstayid
