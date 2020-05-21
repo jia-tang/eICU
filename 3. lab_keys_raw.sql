@@ -1,6 +1,5 @@
 DROP TABLE IF EXISTS `ync-capstones.Jia.lab_keys_raw`;
-CREATE TABLE `ync-capstones.Jia.lab_keys_raw` as
--- get blood gas measures
+CREATE view `ync-capstones.Jia.lab_keys_raw` as
 with vw0 as
 (
   select
@@ -20,7 +19,6 @@ with vw0 as
   group by patientunitstayid, labname, labresultoffset, labresultrevisedoffset
   having count(distinct labresult)<=1
 )
--- get the last lab to be revised
 , vw1 as
 (
   select
