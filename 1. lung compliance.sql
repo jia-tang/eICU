@@ -73,3 +73,13 @@ and peep is not null
 order by patientunitstayid, chartoffset -- no need interval, because peep and tidal volume r in almost all rows, but static compliance r few
 
 -- 25208 data, 2213 patients
+
+-- 1569499 data,
+-- 1464807 data with peep
+-- 332987 data with plateau pressure, peep
+-- 25208 data with TV, plateau pressure,peep
+
+
+-- 1464807 data with peep
+-- 353456 data with plateau pressure
+-- 50564 data with TV
