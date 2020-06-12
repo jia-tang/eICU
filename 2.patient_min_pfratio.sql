@@ -1,5 +1,13 @@
-drop table if exists `ync-capstones.Jia.patient_min_pfratio`;
-create table `ync-capstones.Jia.patient_min_pfratio` as
+-- This table selects:
+-- mechanical ventilated
+-- Patients who are invasively ventilated for at least 48 hours
+-- PF ratio < 300
+    -- PF ratio refers to the first recorded PF ratio within the first day of ICU admission. (use first recorded fio2_offset)
+    -- Take pf ratio with fio2_offset closest to pao2_offset, within 1 hour apart
+    
+
+--drop table if exists `ync-capstones.Jia.patient_min_pfratio`;
+--create table `ync-capstones.Jia.patient_min_pfratio` as
 with allICU as -- patient table
   (select 
     --uniquepid, 
@@ -34,7 +42,7 @@ with allICU as -- patient table
   --   unitdischargetime24,
   --   unitdischargelocation		
   from `physionet-data.eicu_crd.patient` -- table of ICU stays confusingly called "patients"
-  where unitDischargeOffset > 12*60 -- unit admission longer than 12 hours
+  -- where unitDischargeOffset > 12*60 -- unit admission longer than 12 hours
   ),
   
 on_mech_vent as(
@@ -47,7 +55,10 @@ on_mech_vent as(
   from allICU icu 
   inner join `ync-capstones.Jia.oxygen_therapy` ox
   on icu.patientunitstayid = ox.icustay_id
-  where ox.ventnum = 1),
+  where ox.ventnum = 1
+  and vent_duration > 48
+  and oxygen_therapy_type >= 2 -- select mechanical ventilation (Invasive + Noninvasive ventilation)
+  ),
   
 ------------------------------------------------------------------------------------------------------------------------
 -- now we compute PF ratios
@@ -61,7 +72,7 @@ from
   where lower(labname) like 'pao2%') lab
 left outer join on_mech_vent mv 
 on lab.patientunitstayid = mv.patientunitstayid
-where labresultoffset between vent_start and 60*48 + vent_start -- first 2 days of mech ventilation 
+where labresultoffset between vent_start and 60*24 + vent_start -- first 1 days of mech ventilation 
 -- group by patientunitstayid
 ),
 
@@ -86,44 +97,33 @@ fio2 as --FIO2 from respchart
       left outer join on_mech_vent mv 
       on rp.patientunitstayid = mv.patientunitstayid
     WHERE
-      respchartoffset between vent_start and 60*48 + vent_start
+      respchartoffset between vent_start and 60*24 + vent_start
       AND respchartvalue <> ''
       AND REGEXP_CONTAINS(respchartvalue, '^[0-9]{0,2}$')
   ORDER BY
     patientunitstayid),
     
 pf_ratio as 
-(select fio2.patientunitstayid, 100 * pao2.pao2 / fio2.fio2 as pfratio, fio2.respchartoffset as fio2_offset, pao2.labresultoffset as pao2_offset
+(select mv.*, 100 * pao2.pao2 / fio2.fio2 as pfratio, fio2.respchartoffset as fio2_offset, pao2.labresultoffset as pao2_offset
+, ROW_NUMBER() OVER (partition by fio2.patientunitstayid order by ABS(fio2.respchartoffset-pao2.labresultoffset) asc) as ranked_pf_diff
 from fio2
 inner join pao2 
 on fio2.patientunitstayid = pao2.patientunitstayid
+inner join on_mech_vent mv
+on mv.patientunitstayid = fio2.patientunitstayid
 where fio2.respchartoffset between pao2.labresultoffset - 1*60 and pao2.labresultoffset + 1*60
 -- values are less than 1 hour apart
 ), 
 
 
-min_pfratio as
-(
-SELECT pf_ratio.patientunitstayid, pao2_offset,fio2_offset, pfratio
-FROM pf_ratio
-  INNER JOIN
-  (
-    SELECT patientunitstayid, MIN(pfratio) minpf
-    FROM pf_ratio
-    GROUP BY patientunitstayid
-  ) pf1
-  ON pf1.patientunitstayid = pf_ratio.patientunitstayid
-WHERE pf1.minpf = pf_ratio.pfratio),
-
 final as 
-(select mv.*, (pf.fio2_offset + pf.pao2_offset)/2 as pf_offset,pf.pfratio
-,ROW_NUMBER() OVER (PARTITION BY pf.patientunitstayid,cast (pfratio as numeric) ORDER BY fio2_offset) as pf_rank
-from on_mech_vent mv
-inner join min_pfratio pf
-on mv.patientunitstayid = pf.patientunitstayid
+(select *
+,ROW_NUMBER() OVER (PARTITION BY pf_ratio.patientunitstayid ORDER BY fio2_offset) as fio2_rank
+from pf_ratio
+where ranked_pf_diff=1 -- take pf ratio with fio2_offset closest to pao2_offset
 )
 
-SELECT *, 
+SELECT patientunitstayid, unitdischargestatus, gender, age, ethnicity,IBW_calculated,bmi,vent_start,pfratio,fio2_offset,
     CASE 
         WHEN pfratio <= 100 THEN "severe"
         WHEN pfratio between 100 and 200 THEN "moderate"
@@ -131,6 +131,7 @@ SELECT *,
     END AS groupx
 FROM final
 where pfratio<=300
-and pf_rank =1 
+and fio2_rank =1
 order by patientunitstayid
--- 28638
+
+-- 7550
