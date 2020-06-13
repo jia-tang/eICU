@@ -2,7 +2,7 @@
 -- mechanical ventilated
 -- Patients who are invasively ventilated for at least 48 hours
 -- PF ratio < 300
-    -- PF ratio refers to the first recorded PF ratio within the first day of ICU admission. (use first recorded fio2_offset)
+    -- PF ratio refers to the first recorded PF ratio within the first day of ICU admission. (use first recorded fio2_offset, take the first recorded after restricting pfratio <300)
     -- Take pf ratio with fio2_offset closest to pao2_offset, within 1 hour apart
     
 
@@ -105,7 +105,7 @@ fio2 as --FIO2 from respchart
     
 pf_ratio as 
 (select mv.*, 100 * pao2.pao2 / fio2.fio2 as pfratio, fio2.respchartoffset as fio2_offset, pao2.labresultoffset as pao2_offset
-, ROW_NUMBER() OVER (partition by fio2.patientunitstayid order by ABS(fio2.respchartoffset-pao2.labresultoffset) asc) as ranked_pf_diff
+
 from fio2
 inner join pao2 
 on fio2.patientunitstayid = pao2.patientunitstayid
@@ -113,15 +113,11 @@ inner join on_mech_vent mv
 on mv.patientunitstayid = fio2.patientunitstayid
 where fio2.respchartoffset between pao2.labresultoffset - 1*60 and pao2.labresultoffset + 1*60
 -- values are less than 1 hour apart
-), 
+),
 
-
-final as 
-(select *
-,ROW_NUMBER() OVER (PARTITION BY pf_ratio.patientunitstayid ORDER BY fio2_offset) as fio2_rank
-from pf_ratio
-where ranked_pf_diff=1 -- take pf ratio with fio2_offset closest to pao2_offset
-)
+final as (select *
+, ROW_NUMBER() OVER (partition by pf_ratio.patientunitstayid order by ABS(fio2_offset-pao2_offset) asc) as ranked_pf_diff
+from pf_ratio where pfratio<300)
 
 SELECT patientunitstayid, unitdischargestatus, gender, age, ethnicity,IBW_calculated,bmi,vent_start,pfratio,fio2_offset,
     CASE 
@@ -129,9 +125,12 @@ SELECT patientunitstayid, unitdischargestatus, gender, age, ethnicity,IBW_calcul
         WHEN pfratio between 100 and 200 THEN "moderate"
         WHEN pfratio between 200 and 300 THEN "mild"
     END AS groupx
-FROM final
-where pfratio<=300
-and fio2_rank =1
+FROM (select *
+,ROW_NUMBER() OVER (PARTITION BY final.patientunitstayid ORDER BY fio2_offset) as fio2_rank 
+from final 
+where ranked_pf_diff=1)
+where fio2_rank =1
+and pfratio<=300
 order by patientunitstayid
 
--- 7550
+--17609
