@@ -1,5 +1,9 @@
-drop table if exists `ync-capstones.Jia.lungcompliance`;
-create table `ync-capstones.Jia.lungcompliance` as
+-- This table
+-- Combine TV,peep,plateau pressure
+  -- peep has most data, so to maximize sample size: combine TV with peep with a 2 hour interval; combine plateau pressure with a 2 hour interval
+
+--drop table if exists `ync-capstones.Jia.lungcompliance`;
+--create table `ync-capstones.Jia.lungcompliance` as
 with vw0 as
 (
   select
@@ -47,8 +51,6 @@ select
     patientunitstayid
   , cast(respchartoffset as numeric) as chartoffset
   -- the aggregate (max()) only ever applies to 1 value due to the where clause
-  , max (case when respchartvaluelabel = 'Plateau Pressure' then respchartvalue else null end )as Plateau_Pressure
-  , max(case when respchartvaluelabel = 'Tidal Volume Observed (VT)' then respchartvalue else null end )as Tidal_Volume
   , max(case when respchartvaluelabel = 'Static Compliance' then respchartvalue else null end )as Static_Compliance
   , max(case when respchartvaluelabel = 'PEEP' then respchartvalue else null end )as peep
   , max(case when respchartvaluelabel = 'TV/kg IBW' then respchartvalue else null end )as TV_IBW
@@ -57,29 +59,54 @@ where rn = 1
 group by patientunitstayid, respchartoffset
 order by patientunitstayid, respchartoffset),
 
-v1 as(
-select patientunitstayid, chartoffset
-, cast(Tidal_Volume as numeric) as tidal_volume
-,  cast(Plateau_Pressure as numeric) as plateau_pressure
-,  cast(peep as numeric) as peep
-,  cast(TV_IBW as numeric) as TV_IBW
-from vw2)
+TV as(
+select
+    patientunitstayid
+  , cast(respchartoffset as numeric) as chartoffset
+  , max(case when respchartvaluelabel = 'Tidal Volume Observed (VT)' then respchartvalue else null end )as tidal_volume
+from vw1
+where rn = 1
+group by patientunitstayid, respchartoffset
+order by patientunitstayid, respchartoffset),
 
-select *,tidal_volume/nullif((plateau_pressure-peep),0)as lung_compliance 
-from v1
-where tidal_volume is not null
+Plateau as(
+select
+    patientunitstayid
+  , cast(respchartoffset as numeric) as chartoffset
+  , max(case when respchartvaluelabel = 'Plateau Pressure' then respchartvalue else null end )as plateau_pressure
+from vw1
+where rn = 1
+group by patientunitstayid, respchartoffset
+order by patientunitstayid, respchartoffset),
+
+v1 as(
+select vw2.patientunitstayid, vw2.chartoffset
+, cast(tidal_volume as numeric) as tidal_volume
+, cast(plateau_pressure as numeric) as plateau_pressure
+, cast(peep as numeric) as peep
+, cast(TV_IBW as numeric) as TV_IBW
+, ROW_NUMBER() OVER (partition by vw2.patientunitstayid,vw2.chartoffset order by ABS(TV.chartoffset-vw2.chartoffset) asc) as ranked_tv_diff
+, ROW_NUMBER() OVER (partition by vw2.patientunitstayid,vw2.chartoffset order by ABS(TV.chartoffset-vw2.chartoffset) asc) as ranked_pp_diff
+from vw2
+inner join TV 
+on TV.patientunitstayid=vw2.patientunitstayid
+inner join Plateau
+on Plateau.patientunitstayid=vw2.patientunitstayid
+where 
+abs (TV.chartoffset-vw2.chartoffset)<2*60
+and abs (Plateau.chartoffset-vw2.chartoffset)<2*60
 and plateau_pressure is not null
 and peep is not null
-order by patientunitstayid, chartoffset -- no need interval, because peep and tidal volume r in almost all rows, but static compliance r few
-
--- 25208 data, 2213 patients
-
--- 1569499 data,
--- 1464807 data with peep
--- 332987 data with plateau pressure, peep
--- 25208 data with TV, plateau pressure,peep
+and tidal_volume is not null)
 
 
--- 1464807 data with peep
--- 353456 data with plateau pressure
--- 50564 data with TV
+select v1.*,tidal_volume /nullif(plateau_pressure- peep,0)as lung_compliance
+from v1
+where ranked_tv_diff=1
+and ranked_pp_diff=1
+order by patientunitstayid, chartoffset -- no need interval, because peep and tidal volume r in almost all rows, but plateau_pressure r few
+
+-- 25208 data, 2213 patients, if match with exact time
+-- 28124 data, with a 2 hour interval allowed for Tidal volume with peep.
+-- 30274 data, with a 2 hour interval allowed for plateau pressure with peep.
+
