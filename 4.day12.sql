@@ -15,21 +15,18 @@ inner join
 (select v1.patientunitstayid, min(lung_compliance) as min_compliance
 from v1 group by patientunitstayid) t
 on v1.patientunitstayid=t.patientunitstayid and v1.lung_compliance=t.min_compliance
-where abs(chartoffset-0) between 24*60 and 47*60)
+where chartoffset between 24*60 and 47*60)
 
 select min.patientunitstayid, d1.lung_compliance as day1_compliance
-, d2.lung_compliance as day2_compliance from `ync-capstones.Jia.combined_minpf_compliance` min
+ from `ync-capstones.Jia.combined_minpf_compliance` min
 inner join d1 
 on d1.patientunitstayid=min.patientunitstayid
-inner join d2
-on d2.patientunitstayid=min.patientunitstayid
+
 order by patientunitstayid,chartoffset
 
-
---102
+--38
 
 -- 1926 data with day 1 from lung_compliance
--- 319 data with day 2 from lung_compliance
--- combine with pfratio on day1 patient: 102 data
-
+-- 273 data with day 2 from lung_compliance
+-- combine with pfratio on day1 patient: 38 data
 
