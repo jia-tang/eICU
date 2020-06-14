@@ -3,8 +3,8 @@
 -- lung compliance range 7.4-100
 -- peep > 5
 
--- drop table if exists `ync-capstones.Jia.combined_minpf_compliance`;
--- create table `ync-capstones.Jia.combined_minpf_compliance`  as
+ drop table if exists `ync-capstones.Jia.combined_minpf_compliance`;
+ create table `ync-capstones.Jia.combined_minpf_compliance`  as
 
 with v1 as (
 select p.patientunitstayid,p.gender,p.bmi,p.ethnicity,p.age, p.fio2_offset, l.chartoffset as lung_offset, p.pfratio, p.groupx as ARDS_severity,l.peep, l.lung_compliance,TV_IBW,p.unitdischargestatus as mortality
