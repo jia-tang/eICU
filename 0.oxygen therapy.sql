@@ -1,5 +1,5 @@
--- drop view if exists `ync-capstones.Jia.oxygen_therapy`;
--- create view `ync-capstones.Jia.oxygen_therapy` as
+drop view if exists `ync-capstones.Jia.oxygen_therapy`;
+create view `ync-capstones.Jia.oxygen_therapy` as
 
 WITH respchart AS (
 	SELECT *
