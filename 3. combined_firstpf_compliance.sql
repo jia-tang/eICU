@@ -33,10 +33,9 @@ select patientunitstayid,gender,bmi,ethnicity,age, fio2_offset,lung_offset, pfra
     END AS compliance_level
 from v2
 where ranked_by_minute_diff = 1
-and cast(peep as numeric) >= 5
+and peep >= 5
 group by patientunitstayid, pfratio, ARDS_severity, lung_compliance, mortality,gender,bmi,ethnicity,age,TV_IBW_calculated,TV_IBW,peep,fio2_offset,lung_offset
 order by patientunitstayid,fio2_offset
 
 
---747
-
+--325
