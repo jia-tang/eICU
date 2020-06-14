@@ -1,6 +1,6 @@
 -- This table
 -- Combine TV,peep,plateau pressure
-  -- peep has most data, so to maximize sample size: combine TV with peep with a 2 hour interval; combine plateau pressure with a 2 hour interval
+  -- Match the 3 values at the same time stamp (allow 2-hour interval doesn't increase sample size)  
 
 --drop table if exists `ync-capstones.Jia.lungcompliance`;
 --create table `ync-capstones.Jia.lungcompliance` as
@@ -93,20 +93,16 @@ on TV.patientunitstayid=vw2.patientunitstayid
 inner join Plateau
 on Plateau.patientunitstayid=vw2.patientunitstayid
 where 
-abs (TV.chartoffset-vw2.chartoffset)<2*60
-and abs (Plateau.chartoffset-vw2.chartoffset)<2*60
+abs (TV.chartoffset-vw2.chartoffset)=0
+and abs (Plateau.chartoffset-vw2.chartoffset)=0
 and plateau_pressure is not null
 and peep is not null
 and tidal_volume is not null)
-
 
 select v1.*,tidal_volume /nullif(plateau_pressure- peep,0)as lung_compliance
 from v1
 where ranked_tv_diff=1
 and ranked_pp_diff=1
-order by patientunitstayid, chartoffset -- no need interval, because peep and tidal volume r in almost all rows, but plateau_pressure r few
+order by patientunitstayid, chartoffset 
 
--- 25208 data, 2213 patients, if match with exact time
--- 28124 data, with a 2 hour interval allowed for Tidal volume with peep.
--- 30274 data, with a 2 hour interval allowed for plateau pressure with peep.
-
+-- 25208 data, 2213 patients
