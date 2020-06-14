@@ -6,8 +6,8 @@
     -- Take pf ratio with fio2_offset closest to pao2_offset, within 1 hour apart
     
 
---drop table if exists `ync-capstones.Jia.patient_min_pfratio`;
---create table `ync-capstones.Jia.patient_min_pfratio` as
+drop view if exists `ync-capstones.Jia.patient_min_pfratio`;
+create view `ync-capstones.Jia.patient_min_pfratio` as
 with allICU as -- patient table
   (select 
     --uniquepid, 
