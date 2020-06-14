@@ -2,8 +2,8 @@
 -- Combine TV,peep,plateau pressure
   -- Match the 3 values at the same time stamp (allow 2-hour interval doesn't increase sample size)  
 
---drop table if exists `ync-capstones.Jia.lungcompliance`;
---create table `ync-capstones.Jia.lungcompliance` as
+drop view if exists `ync-capstones.Jia.lungcompliance`;
+create view `ync-capstones.Jia.lungcompliance` as
 with vw0 as
 (
   select
