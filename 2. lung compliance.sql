@@ -86,7 +86,7 @@ order by patientunitstayid, chartoffset),
 v1 as(
 select vw2.patientunitstayid, vw2.chartoffset, tidal_volume, plateau_pressure, peep,TV_IBW.TV_IBW, max_peep, first_TV.first_tv
 , ROW_NUMBER() OVER (partition by vw2.patientunitstayid,vw2.chartoffset order by ABS(TV.chartoffset-vw2.chartoffset) asc) as ranked_tv_diff
-, ROW_NUMBER() OVER (partition by vw2.patientunitstayid,vw2.chartoffset order by ABS(TV.chartoffset-vw2.chartoffset) asc) as ranked_pp_diff
+, ROW_NUMBER() OVER (partition by vw2.patientunitstayid,vw2.chartoffset order by ABS(Plateau.chartoffset-vw2.chartoffset) asc) as ranked_pp_diff
 from vw2
 inner join TV 
 on TV.patientunitstayid=vw2.patientunitstayid
