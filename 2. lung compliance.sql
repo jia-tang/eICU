@@ -45,7 +45,7 @@ select
   , tidal_volume as first_tv
   from (
   select TV.patientunitstayid, tidal_volume,chartoffset,
-  ROW_NUMBER() OVER (partition by TV.patientunitstayid order by tidal_volume asc) as rank_tv
+  ROW_NUMBER() OVER (partition by TV.patientunitstayid order by chartoffset asc) as rank_tv #order by time(chartoffset?) instead of tidal volume 
   from TV
 ) 
   where rank_tv=1
