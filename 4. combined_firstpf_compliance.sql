@@ -1,29 +1,26 @@
 -- This table selects:
--- combine static compliance and pf ratio, in a 6 hour interval 
--- lung compliance range 7.4-100
--- peep > 5
+  -- combine static compliance and pf ratio (the closet within the same 4hour time window)
+-- 1870 patients
 
---drop table if exists `ync-capstones.Jia.combined_firstpf_compliance`;
---create table `ync-capstones.Jia.combined_firstpf_compliance`  as
+
+drop table if exists `ync-capstones.Jia.combined_firstpf_compliance`;
+create table `ync-capstones.Jia.combined_firstpf_compliance`  as
 
 with v1 as (
-select p.*,l.max_peep, l.peep,l.tidal_volume,l.plateau_pressure,l.chartoffset as lung_offset, l.lung_compliance,TV_IBW
+select p.*,l.max_peep, l.peep,l.tidal_volume,l.plateau_pressure,l.TV_offset as lung_offset, l.lung_compliance,TV_IBW
 ,l.first_tv/p.IBW_calculated as TV_IBW_calculated -- use initial tidal volume
-, ROW_NUMBER() OVER (partition by p.patientunitstayid order by ABS(fio2_offset-l.chartoffset) asc) as ranked_by_minute_diff
+, ROW_NUMBER() OVER (partition by p.patientunitstayid order by ABS(fio2_offset-l.TV_offset) asc) as ranked_by_minute_diff
 from `ync-capstones.Jia.patient_first_pfratio`  p
 inner join `ync-capstones.Jia.lungcompliance` l
 on p.patientunitstayid=l.patientunitstayid
-and abs(p.fio2_offset - l.chartoffset) < 60*6 -- combine pfratio and lung compliance in a 6 hour interval
+and lung_time=fio2_time
 order by p.patientunitstayid, fio2_offset),
 
 first as ( -- combine pf ratio with lung compliance 
 select *
 from v1
 where ranked_by_minute_diff = 1
-and peep >= 5
-and ICU_rank =1 
 order by patientunitstayid,fio2_offset),
---730 after changing fio2
 
 icd_code AS (
 SELECT
@@ -109,5 +106,4 @@ on first.patientunitstayid= sofa.patientunitstayid)
 select v2.* from v2
 
 
--- 2503 after selecting ards label
 
