@@ -36,13 +36,14 @@ on d2.patientunitstayid=first.patientunitstayid
 order by patientunitstayid,TV_offset)
 
 select * ,CASE 
-        WHEN day1 <= 34 THEN "L"
-        When day1 >= 34 THEN "H"
+        WHEN day1 > 50 THEN "Type L"
+        When day1 between 40 and 50 THEN "Intermediate phenotype"
+        WHEN day1 <= 40 THEN "Type H"
     END AS day1_compliance
     , CASE 
-        WHEN day2 <= 34 THEN "L"
-        When day2 >= 34 THEN "H"
+        WHEN day2 > 50 THEN "Type L"
+        When day2 between 40 and 50 THEN "Intermediate phenotype"
+        WHEN day2 <= 40 THEN "Type H"
     END AS day2_compliance
 from final
-
 
