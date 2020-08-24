@@ -1,0 +1,322 @@
+## Import data
+```{r}
+library(mgcv)
+library(ggplot2)
+library(vcd)
+library(visreg)
+df <- read.csv("~/Desktop/Data science/medical records/R/first.csv",na.strings = c(""))
+df$mortality_num[df$hospitaldischargestatus=="Alive"]<-0
+df$mortality_num[df$hospitaldischargestatus=="Expired"]<-1
+df$icu_mortality[df$unitdischargestatus=="Alive"]<-0
+df$icu_mortality[df$unitdischargestatus=="Expired"]<-1
+
+# eliminate outliers
+df$bmi[df$bmi>100 | df$bmi<10]<-NA
+df$tidal_volume[df$tidal_volume>1000]<-NA
+df$TV_IBW_calculated[df$TV_IBW_calculated<0]<-NA
+df$TV_IBW_calculated[df$TV_IBW_calculated>20]<-NA
+df$max_peep[df$max_peep>20]<-NA
+df<-df[!is.na(df$mortality_num),]
+
+# phenotype
+df$compliance_level[df$lung_compliance>50]<-"L"
+df$compliance_level[df$lung_compliance>40 & df$lung_compliance<=50]<-"I"
+df$compliance_level[df$lung_compliance<=40]<-"H"
+```
+
+## Visual data exploratory analysis
+```{r}
+# Distribution of respiratory system compliances by ARDS severity
+boxplot(df$lung_compliance[df$ARDS_severity=="mild"], 
+        df$lung_compliance[df$ARDS_severity=="moderate"],
+        df$lung_compliance[df$ARDS_severity=="severe"],
+        names = c('Mild ARDS','Moderate ARDS','Severe ARDS'),
+        ylab = expression("C"[rs]*" ml/cmH"[2]*"O")) 
+
+# Association of PF ratio and respiratory system compliance
+ggplot(df,aes(x=pfratio,y=lung_compliance))+ geom_point(alpha = 0.1)+geom_smooth(method = "gam", formula = y ~s(x))+labs(x=expression("PaO"[2]*"/FiO"[2]*"(mmHg)"),y=expression("C"[rs]*" ml/cmH"[2]*"O"))
+model<-gam(lung_compliance ~ s(pfratio),data=df,method = "REML")
+summary(model)
+
+# LOESS curves (A) and predicted marginal probabilities with 95% confidence intervals (B) for the hospital mortality versus the respiratory system compliance (Crs)
+model1 = gam(mortality_num ~ s(lung_compliance), data=df, family=binomial)
+visreg(model1, "lung_compliance",scale="response", rug=2, xlab=expression("C"[rs]*" ml/cmH"[2]*"O"),ylab="Probability of dying")
+summary(model1)
+```
+
+## GAM: Mortality ~ peep / tv
+```{r}
+# Confounders: s(TV/IBW),s(peep),pfratio,sofa,bmi,age
+# general
+model3 = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df, family=binomial)
+summary(model3)
+par(mfrow=c(1,2))
+visreg(model3, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="for all phenotypes (n=1583)",xlim=c(5,20),ylim=c(0,1))
+visreg(model3, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg) ",ylab="Probability of dying",main="for all phenotypes (n=1583)",ylim=c(0,1))
+
+# phenotype L
+model3a = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df[df$compliance_level=="L",], family=binomial)
+summary(model3a)
+par(mfrow=c(1,2))
+visreg(model3a, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="Phenotype L (n=247)",xlim=c(5,20),ylim=c(0,1))
+visreg(model3a, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg)",ylab="Probability of dying",main="Phenotype L (n=247)",ylim=c(0,1))
+
+# Intermediate 
+model3b = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df[df$compliance_level=="I",], family=binomial)
+summary(model3b)
+par(mfrow=c(1,2))
+visreg(model3b, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="Intermediate phenotype (n=310)",xlim=c(5,20),ylim=c(0,1))
+visreg(model3b, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg) ",ylab="Probability of dying",main="Intermediate phenotype (n=310)",ylim=c(0,1))
+
+# phenotype H
+model3c = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df[df$compliance_level=="H",], family=binomial)
+summary(model3c)
+par(mfrow=c(1,2))
+visreg(model3c, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="Phenotype H (n=1026)",xlim=c(5,20),ylim=c(0,1))
+visreg(model3c, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg) ",ylab="Probability of dying",main="Phenotype H (n=1026)",ylim=c(0,1))
+```
+
+
+## Demographics
+```{r}
+# Number of patients
+# compliance distribution
+table(df$compliance_level)
+
+# Age
+dfL<-df[df$compliance_level=="L",]
+dfI<-df[df$compliance_level=="I",]
+dfH<-df[df$compliance_level=="H",]
+
+aggregate(x = df$age,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
+
+# Gender
+round(table(dfL$gender)/sum(table(dfL$gender)),3) #0 NA
+round(table(dfI$gender)/sum(table(dfI$gender)),3) #0 NA
+round(table(dfH$gender)/sum(table(dfH$gender)),3) #0 NA
+
+# BMI
+aggregate(x = df$bmi,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
+
+# SOFA score (SD)
+aggregate(x = df$sofatotal,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
+
+# Source of admission
+round(table(dfL$unitAdmitSource)/sum(table(dfL$unitAdmitSource)),3)
+round(table(dfI$unitAdmitSource)/sum(table(dfI$unitAdmitSource)),3)
+round(table(dfH$unitAdmitSource)/sum(table(dfH$unitAdmitSource)),3)
+```
+
+## Comorbid conditions
+```{r}
+mat <- matrix(NA_character_, nrow = 11, ncol = 2,
+              dimnames = list( c("AF","Cancer","CHF","CKD","CLD","COPD","DMD","hypertension","IHD","sepsis","stroke"),c("FALSE","TRUE")))
+
+# Low elastance 
+comorbid<-function(df){
+mat[1,]<-round(table(df$has_atrial_fibrillation_disease)/sum(table(df$has_atrial_fibrillation_disease)),3)
+mat[2,]<-round(table(df$has_cancer_disease)/sum(table(df$has_atrial_fibrillation_disease)),3)
+mat[3,]<-round(table(df$CHF)/sum(table(df$CHF)),3)
+mat[4,]<-round(table(df$CKD)/sum(table(df$CKD)),3)
+mat[5,]<-round(table(df$has_chronic_liver_disease)/sum(table(df$has_chronic_liver_disease)),3)
+mat[6,]<-round(table(df$has_copd_disease)/sum(table(df$has_copd_disease)),3)
+mat[7,]<-round(table(df$has_diabetes_mellitus_disease)/sum(table(df$has_diabetes_mellitus_disease)),3)
+mat[8,]<-round(table(df$has_hypertension_disease)/sum(table(df$has_hypertension_disease)),3)
+mat[9,]<-round(table(df$has_ischemic_heart_disease)/sum(table(df$has_ischemic_heart_disease)),3)
+mat[10,]<-round(table(df$has_sepsis)/sum(table(df$has_sepsis)),3)
+mat[11,]<-round(table(df$has_stroke_disease)/sum(table(df$has_stroke_disease)),3)
+
+return(mat)
+}
+
+comorbid(dfL)
+comorbid(dfI)
+comorbid(dfH)
+```
+
+## Vital signs on ICU admission
+```{r}
+# Temperature
+aggregate(x = df$temperature,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
+
+# Heart rate
+aggregate(x = df$heartrate,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
+
+# Mean arterial pressure
+aggregate(x = df$mean_arterial_pressure,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
+
+# Respiratory rate
+aggregate(x = df$respiration,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+```
+
+## ARDS severity on ICU admission
+```{r}
+# ARDS severity on ICU admission
+round(table(dfL$ARDS_severity)/sum(table(dfL$ARDS_severity)),3)
+round(table(dfI$ARDS_severity)/sum(table(dfI$ARDS_severity)),3)
+round(table(dfH$ARDS_severity)/sum(table(dfH$ARDS_severity)),3)
+```
+
+## Gas exchange parameters on ICU admission
+```{r}
+# PaO2
+aggregate(x = df$pao2,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+# PF ratio
+aggregate(x = df$pfratio,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# PaCO2
+aggregate(x = df$paco2,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# PH
+aggregate(x = df$PH,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+```
+
+## Ventilator settings on ICU admission
+```{r}
+#FIO2
+aggregate(x = df$fio2,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# Compliance median(IQR)
+summary(dfL$lung_compliance)
+summary(dfI$lung_compliance)
+summary(dfH$lung_compliance)
+
+# Mean plateau pressure (cmH2O) (SD)
+aggregate(x = df$plateau_pressure,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# Mean PEEP (cmH2O) (SD)
+aggregate(x = df$peep,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# Mean driving pressure (cmH2O) (SD)
+df$driving_pressure<-df$plateau_pressure-df$peep
+aggregate(x = df$driving_pressure,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# Mean tidal volume (ml) (SD)
+aggregate(x = df$tidal_volume,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+
+# Mean TV/kg IBW (ml/kg) (SD)
+aggregate(x = df$TV_IBW_calculated,                
+          by = list(df$compliance_level),              
+          FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE)))
+```
+
+## Patient outcomes
+```{r}
+# Median duration of mechanical ventilation (days) (IQR)
+summary(dfL$vent_duration)/24
+summary(dfI$vent_duration)/24
+summary(dfH$vent_duration)/24
+
+# Median duration of ICU stay (days) (IQR)
+summary(dfL$unit_duration)/60/24
+summary(dfI$unit_duration)/60/24
+summary(dfH$unit_duration)/60/24
+
+# Median duration of hospital stay (days) (IQR)
+summary(dfL$hospital_duration)/60/24
+summary(dfI$hospital_duration)/60/24
+summary(dfH$hospital_duration)/60/24
+
+# ICU mortality (%)
+round(table(dfL$unitdischargestatus)/sum(table(dfL$unitdischargestatus)),3)
+round(table(dfI$unitdischargestatus)/sum(table(dfI$unitdischargestatus)),3)
+round(table(dfH$unitdischargestatus)/sum(table(dfH$unitdischargestatus)),3)
+
+# Hospital mortality (%)
+round(table(dfL$hospitaldischargestatus)/sum(table(dfL$hospitaldischargestatus)),3)
+round(table(dfI$hospitaldischargestatus)/sum(table(dfI$hospitaldischargestatus)),3)
+round(table(dfH$hospitaldischargestatus)/sum(table(dfH$hospitaldischargestatus)),3)
+```
+
+## Odds ratio
+```{r}
+model4= glm(mortality_num ~ compliance_level, data=df, family=binomial)
+exp(cbind(OR = coef(model4), confint(model4)))
+
+model4a = glm(mortality_num ~compliance_level+ pfratio+age+bmi+sofatotal, data=df, family=binomial)
+exp(cbind(OR = coef(model4a), confint(model4a)))
+
+model5= glm(icu_mortality ~ compliance_level, data=df, family=binomial)
+exp(cbind(OR = coef(model5), confint(model5)))
+
+model5a = glm(icu_mortality ~compliance_level+ pfratio+age+bmi+sofatotal, data=df, family=binomial)
+exp(cbind(OR = coef(model5a), confint(model5a)))
+```
+
+## Check how each of the 4 compliance groups shift across time
+```{r}
+df1 <- read.csv("day12.csv")
+df1<-df1[c(4,5)]
+table(df1)
+
+# transition matrix
+trans.matrix <- function(X, prob=T)
+{
+  tt <- table( c(X[,-ncol(X)]), c(X[,-1]) )
+  if(prob) tt <- round(tt / rowSums(tt))
+  tt
+}
+transition<-trans.matrix(df1)
+
+```
+
+## Check Linearity (didn't use)
+```{r}
+library(tidyverse)
+library(broom)
+# Select only numeric predictors
+test_linearity<-function(df){
+mydata<-select(df,mortality_num,max_peep,TV_IBW_calculated,bmi,age,sofatotal,pfratio)
+mydata<-na.omit(mydata)
+model = glm(mortality_num ~ ., data=mydata, family=binomial)
+probabilities <- predict(model, type = "response")
+predictors <- colnames(mydata$max_peep)
+
+mydata <- mydata %>%
+  mutate(logit = log(probabilities/(1-probabilities))) %>%
+  gather(key = "predictors", value = "predictor.value", -logit)
+
+ggplot(mydata, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw() + 
+  facet_wrap(~predictors, scales = "free_y")
+}
+
+test_linearity(df)
+# nonlinear: peep, age, bmi
+# linear: pfratio, sofatotal, TV_IBW
+```
