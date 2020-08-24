@@ -106,7 +106,7 @@ SELECT
       order by patientunitstayid,respchartoffset),
     
 pf_ratio as 
-(select mv.*,fio2.fio2, 100 * pao2.pao2 / fio2.fio2 as pfratio, fio2.respchartoffset as fio2_offset, pao2.labresultoffset as pao2_offset
+(select mv.*,fio2.fio2,pao2.pao2, 100 * pao2.pao2 / fio2.fio2 as pfratio, fio2.respchartoffset as fio2_offset, pao2.labresultoffset as pao2_offset
 from fio2
 inner join pao2 
 on fio2.patientunitstayid = pao2.patientunitstayid
