@@ -6,8 +6,8 @@
 
 -- 18013 patients
 
---drop table if exists `ync-capstones.Jia.lungcompliance`;
---create table `ync-capstones.Jia.lungcompliance` as
+drop table if exists `ync-capstones.Jia.lungcompliance`;
+create table `ync-capstones.Jia.lungcompliance` as
 with vw0 as
 (
   select
@@ -134,4 +134,5 @@ order by patientunitstayid, TV_offset)
 select * from final
 where lung_compliance > 7.4 -- eliminate rows with compliance too low (<e^2) and too high (>100)
 and lung_compliance < 100
+
 
