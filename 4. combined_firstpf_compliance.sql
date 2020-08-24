@@ -85,9 +85,23 @@ where mean_arterial_pressure is not null
 and map_rank=1
 ),
 
+first_PaCO2 as (
+select patientunitstayid, labresult as paco2
+from ( select patientunitstayid, labresult,
+ROW_NUMBER() OVER (PARTITION BY patientunitstayid ORDER BY labresultoffset) as paCO2_rank 
+from `physionet-data.eicu_crd.lab` where labname="paCO2")
+where paCO2_rank=1),
+
+first_PH as (
+select patientunitstayid, labresult as PH
+from ( select patientunitstayid, labresult,
+ROW_NUMBER() OVER (PARTITION BY patientunitstayid ORDER BY labresultoffset) as PH_rank 
+from `physionet-data.eicu_crd.lab` where labname="pH")
+where PH_rank=1),
+
 v2 as (
 select 
-first.*, sofa.sofatotal , Temperature.temperature, Heartrate.heartrate, Respiration.respiration, mean_arterial_pressure.mean_arterial_pressure
+first.*, sofa.sofatotal , Temperature.temperature, Heartrate.heartrate, Respiration.respiration, mean_arterial_pressure.mean_arterial_pressure, first_PaCO2.paco2, first_PH.PH
 , icd_presence.* EXCEPT(patientunitstayid)
 from first
 left outer join Temperature
@@ -101,9 +115,13 @@ on first.patientunitstayid= mean_arterial_pressure.patientunitstayid
 left join icd_presence
 on first.patientunitstayid= icd_presence.patientunitstayid
 left join `ync-capstones.Jia.sofa` sofa
-on first.patientunitstayid= sofa.patientunitstayid)
+on first.patientunitstayid= sofa.patientunitstayid
+left outer join first_PaCO2
+on first.patientunitstayid= first_PaCO2.patientunitstayid
+left outer join first_PH
+on first.patientunitstayid= first_PH.patientunitstayid
+)
 
 select v2.* from v2
-
 
 
