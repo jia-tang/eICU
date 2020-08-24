@@ -8,8 +8,8 @@
 
 --5035 patients
 
---drop table if exists `ync-capstones.Jia.patient_first_pfratio`;
---create table `ync-capstones.Jia.patient_first_pfratio` as
+drop table if exists `ync-capstones.Jia.patient_first_pfratio`;
+create table `ync-capstones.Jia.patient_first_pfratio` as
 with allICU as -- patient table
   (select 
     --uniquepid, 
