@@ -131,7 +131,13 @@ where ranked_tv_diff=1
 and ranked_pp_diff=1
 order by patientunitstayid, TV_offset)
 
-select * from final
+select *
+    , CASE 
+        WHEN lung_compliance > 50 THEN "L"
+        When lung_compliance between 40 and 50 THEN "I"
+        WHEN lung_compliance <= 40 THEN "H"
+    END AS compliance_level
+from final
 where lung_compliance > 7.4 -- eliminate rows with compliance too low (<e^2) and too high (>100)
 and lung_compliance < 100
 
