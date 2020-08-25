@@ -7,7 +7,7 @@ drop table if exists `ync-capstones.Jia.combined_firstpf_compliance`;
 create table `ync-capstones.Jia.combined_firstpf_compliance`  as
 
 with v1 as (
-select p.*,l.max_peep, l.peep,l.tidal_volume,l.plateau_pressure,l.TV_offset as lung_offset, l.lung_compliance,TV_IBW
+select p.*,l.max_peep, l.peep,l.tidal_volume,l.plateau_pressure,l.TV_offset as lung_offset, l.compliance_level, l.lung_compliance,TV_IBW
 ,l.first_tv/p.IBW_calculated as TV_IBW_calculated -- use initial tidal volume
 , ROW_NUMBER() OVER (partition by p.patientunitstayid order by ABS(fio2_offset-l.TV_offset) asc) as ranked_by_minute_diff
 from `ync-capstones.Jia.patient_first_pfratio`  p
