@@ -1,10 +1,7 @@
---IMPORTANT: Please see around l277 for some possible issues.
---
---Based on code by Matthieu Komorowski, with changes to allow it to be used 
--- on BQ
+-- This code was based on https://github.com/nus-mornin-lab/oxygenation_kc/blob/master/data-extraction/eICU/eicu_sofa_results.sql , with permission from the author
 
- drop view if exists `ync-capstones.Jia.sofa`;
- create view `ync-capstones.Jia.sofa` as
+drop view if exists `ync-capstones.Jia.sofa`;
+create view `ync-capstones.Jia.sofa` as
 
 
 WITH 
