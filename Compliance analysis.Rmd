@@ -35,9 +35,16 @@ model<-gam(lung_compliance ~ s(pfratio),data=df)
 summary(model)
 
 # Association of general additive model curve for hospital mortality versus the respiratory system compliance
+# adjusted
 model1 = gam(mortality_num ~ s(lung_compliance)+pfratio+age+bmi+sofatotal, data=df, family=binomial)
-visreg(model1, "lung_compliance",scale="response", rug=2, xlab=expression("C"[rs]*" ml/cmH"[2]*"O"),ylab="Probability of dying")
 summary(model1)
+# no adjustment
+model1a = gam(mortality_num ~ s(lung_compliance), data=df, family=binomial)
+summary(model1a)
+
+par(mfrow=c(1,2))
+visreg(model1a, "lung_compliance",scale="response", rug=2, xlab=expression("C"[rs]*" ml/cmH"[2]*"O"),ylab="Probability of dying",ylim = c(0,1))
+visreg(model1, "lung_compliance",scale="response", rug=2, xlab=expression("C"[rs]*" ml/cmH"[2]*"O"),ylab="Probability of dying",ylim = c(0,1))
 ```
 
 ## GAM: Mortality ~ peep / tv
