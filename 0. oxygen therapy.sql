@@ -1,3 +1,5 @@
+-- This sql codes was derived and modified from https://github.com/nus-mornin-lab/oxygenation_kc/blob/master/data-extraction/eICU/eicu_oxygen_therapy.sql, with permission from the author
+
 drop view if exists `ync-capstones.Jia.oxygen_therapy`;
 create view `ync-capstones.Jia.oxygen_therapy` as
 
