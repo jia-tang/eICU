@@ -4,7 +4,8 @@ library(mgcv)
 library(ggplot2)
 library(vcd)
 library(visreg)
-df <- read.csv("~/Desktop/Data science/medical records/R/first.csv",na.strings = c(""))
+df <- read.csv("~/Desktop/Data science/medical records/R/combined_firstpf_compliance.csv",na.strings = c(""))
+
 df$mortality_num[df$hospitaldischargestatus=="Alive"]<-0
 df$mortality_num[df$hospitaldischargestatus=="Expired"]<-1
 df$icu_mortality[df$unitdischargestatus=="Alive"]<-0
@@ -17,14 +18,9 @@ df$TV_IBW_calculated[df$TV_IBW_calculated<0]<-NA
 df$TV_IBW_calculated[df$TV_IBW_calculated>20]<-NA
 df$max_peep[df$max_peep>20]<-NA
 df<-df[!is.na(df$mortality_num),]
-
-# phenotype
-df$compliance_level[df$lung_compliance>50]<-"L"
-df$compliance_level[df$lung_compliance>40 & df$lung_compliance<=50]<-"I"
-df$compliance_level[df$lung_compliance<=40]<-"H"
 ```
 
-## Visual data exploratory analysis
+## Visual exploratory data analysis
 ```{r}
 # Distribution of respiratory system compliances by ARDS severity
 boxplot(df$lung_compliance[df$ARDS_severity=="mild"], 
@@ -35,11 +31,11 @@ boxplot(df$lung_compliance[df$ARDS_severity=="mild"],
 
 # Association of PF ratio and respiratory system compliance
 ggplot(df,aes(x=pfratio,y=lung_compliance))+ geom_point(alpha = 0.1)+geom_smooth(method = "gam", formula = y ~s(x))+labs(x=expression("PaO"[2]*"/FiO"[2]*"(mmHg)"),y=expression("C"[rs]*" ml/cmH"[2]*"O"))
-model<-gam(lung_compliance ~ s(pfratio),data=df,method = "REML")
+model<-gam(lung_compliance ~ s(pfratio),data=df)
 summary(model)
 
-# LOESS curves (A) and predicted marginal probabilities with 95% confidence intervals (B) for the hospital mortality versus the respiratory system compliance (Crs)
-model1 = gam(mortality_num ~ s(lung_compliance), data=df, family=binomial)
+# Association of general additive model curve for hospital mortality versus the respiratory system compliance
+model1 = gam(mortality_num ~ s(lung_compliance)+pfratio+age+bmi+sofatotal, data=df, family=binomial)
 visreg(model1, "lung_compliance",scale="response", rug=2, xlab=expression("C"[rs]*" ml/cmH"[2]*"O"),ylab="Probability of dying")
 summary(model1)
 ```
@@ -263,7 +259,9 @@ round(table(dfH$hospitaldischargestatus)/sum(table(dfH$hospitaldischargestatus))
 
 ## Odds ratio
 ```{r}
-model4= glm(mortality_num ~ compliance_level, data=df, family=binomial)
+df$compliance_level<-factor(df$compliance_level,levels=c("L","I","H"))
+
+model4= glm(mortality_num ~ df$compliance_level, data=df, family=binomial)
 exp(cbind(OR = coef(model4), confint(model4)))
 
 model4a = glm(mortality_num ~compliance_level+ pfratio+age+bmi+sofatotal, data=df, family=binomial)
@@ -291,32 +289,4 @@ trans.matrix <- function(X, prob=T)
 }
 transition<-trans.matrix(df1)
 
-```
-
-## Check Linearity (didn't use)
-```{r}
-library(tidyverse)
-library(broom)
-# Select only numeric predictors
-test_linearity<-function(df){
-mydata<-select(df,mortality_num,max_peep,TV_IBW_calculated,bmi,age,sofatotal,pfratio)
-mydata<-na.omit(mydata)
-model = glm(mortality_num ~ ., data=mydata, family=binomial)
-probabilities <- predict(model, type = "response")
-predictors <- colnames(mydata$max_peep)
-
-mydata <- mydata %>%
-  mutate(logit = log(probabilities/(1-probabilities))) %>%
-  gather(key = "predictors", value = "predictor.value", -logit)
-
-ggplot(mydata, aes(logit, predictor.value))+
-  geom_point(size = 0.5, alpha = 0.5) +
-  geom_smooth(method = "loess") + 
-  theme_bw() + 
-  facet_wrap(~predictors, scales = "free_y")
-}
-
-test_linearity(df)
-# nonlinear: peep, age, bmi
-# linear: pfratio, sofatotal, TV_IBW
 ```
