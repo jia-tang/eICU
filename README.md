@@ -1,4 +1,4 @@
-This repository contains the code for the analyses in "Compliance phenotypes in early non-COVID-19 ARDS: Analysis of a large multicenter database"
+This repository contains the code for the analyses in "Do compliance phenotypes exist in early non-COVID-19 ARDS? Analysis of a large multicenter database"
 
 The eICU Collaborative Research Database was accessed through Bigquery.
 
