@@ -1,4 +1,5 @@
---1511 patients
+--This table selects patients with compliance data available for both Day 1 and Day 2
+--1515 patients
 
 with v1 as (
 select compliance.*
@@ -26,7 +27,7 @@ group by patientunitstayid,lung_compliance
 ),
 
 final as (
-select first.patientunitstayid, d1.lung_compliance as day1
+select first.patientunitstayid, first.hospitaldischargestatus, d1.lung_compliance as day1
 , d2.lung_compliance as day2
  from `ync-capstones.Jia.combined_firstpf_compliance` first
 inner join d1 
@@ -46,4 +47,5 @@ select * ,CASE
         WHEN day2 <= 40 THEN "Type H"
     END AS day2_compliance
 from final
+
 
