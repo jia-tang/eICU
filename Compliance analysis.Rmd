@@ -20,24 +20,25 @@ df$max_peep[df$max_peep>20]<-NA
 df<-df[!is.na(df$mortality_num),]
 ```
 
+Old
 ## Visual exploratory data analysis
 ```{r}
-# Distribution of respiratory system compliances by ARDS severity
-boxplot(df$lung_compliance[df$ARDS_severity=="mild"], 
-        df$lung_compliance[df$ARDS_severity=="moderate"],
-        df$lung_compliance[df$ARDS_severity=="severe"],
-        names = c('Mild ARDS','Moderate ARDS','Severe ARDS'),
-        ylab = expression("C"[rs]*" ml/cmH"[2]*"O")) 
-
 # Association of PF ratio and respiratory system compliance
-ggplot(df,aes(x=pfratio,y=lung_compliance))+ geom_point(alpha = 0.1)+geom_smooth(method = "gam", formula = y ~s(x))+labs(x=expression("PaO"[2]*"/FiO"[2]*"(mmHg)"),y=expression("C"[rs]*" ml/cmH"[2]*"O"))
+par(mfrow=c(1,2))
+
 model<-gam(lung_compliance ~ s(pfratio),data=df)
+visreg(model, "pfratio",rug=TRUE,cex=0.25,band=TRUE,xlab=expression("PaO"[2]*"/FiO"[2]*"(mmHg)"),ylab=expression("C"[rs]*" ml/cmH"[2]*"O"),points=list(col="#55555540", cex=0.25)) 
+modela<-gam(lung_compliance ~ s(pfratio)+pfratio+sofatotal+age+bmi,data=df)
+visreg(modela, "pfratio",rug=TRUE,cex=0.25,band=TRUE,xlab=expression("PaO"[2]*"/FiO"[2]*"(mmHg)"),ylab=expression("C"[rs]*" ml/cmH"[2]*"O"),points=list(col="#55555540", cex=0.25)) 
+
 summary(model)
+summary(modela)
 
 # Association of general additive model curve for hospital mortality versus the respiratory system compliance
 # adjusted
 model1 = gam(mortality_num ~ s(lung_compliance)+pfratio+age+bmi+sofatotal, data=df, family=binomial)
 summary(model1)
+
 # no adjustment
 model1a = gam(mortality_num ~ s(lung_compliance), data=df, family=binomial)
 summary(model1a)
@@ -47,55 +48,27 @@ visreg(model1a, "lung_compliance",scale="response", rug=2, xlab=expression("C"[r
 visreg(model1, "lung_compliance",scale="response", rug=2, xlab=expression("C"[rs]*" ml/cmH"[2]*"O"),ylab="Probability of dying",ylim = c(0,1))
 ```
 
-## GAM: Mortality ~ peep / tv
-```{r}
-# Confounders: s(TV/IBW),s(peep),pfratio,sofa,bmi,age
-# general
-model3 = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df, family=binomial)
-summary(model3)
-par(mfrow=c(1,2))
-visreg(model3, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="for all phenotypes (n=1583)",xlim=c(5,20),ylim=c(0,1))
-visreg(model3, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg) ",ylab="Probability of dying",main="for all phenotypes (n=1583)",ylim=c(0,1))
-
-# phenotype L
-model3a = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df[df$compliance_level=="L",], family=binomial)
-summary(model3a)
-par(mfrow=c(1,2))
-visreg(model3a, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="Phenotype L (n=247)",xlim=c(5,20),ylim=c(0,1))
-visreg(model3a, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg)",ylab="Probability of dying",main="Phenotype L (n=247)",ylim=c(0,1))
-
-# Intermediate 
-model3b = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df[df$compliance_level=="I",], family=binomial)
-summary(model3b)
-par(mfrow=c(1,2))
-visreg(model3b, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="Intermediate phenotype (n=310)",xlim=c(5,20),ylim=c(0,1))
-visreg(model3b, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg) ",ylab="Probability of dying",main="Intermediate phenotype (n=310)",ylim=c(0,1))
-
-# phenotype H
-model3c = gam(mortality_num ~ s(TV_IBW_calculated)+ s(max_peep)+pfratio+age+bmi+sofatotal, data=df[df$compliance_level=="H",], family=binomial)
-summary(model3c)
-par(mfrow=c(1,2))
-visreg(model3c, "max_peep",scale="response", rug=2, xlab="Peep",ylab="Probability of dying",main="Phenotype H (n=1026)",xlim=c(5,20),ylim=c(0,1))
-visreg(model3c, "TV_IBW_calculated",scale="response", rug=2, xlab="TV/kg IBW (ml/kg) ",ylab="Probability of dying",main="Phenotype H (n=1026)",ylim=c(0,1))
-```
-
 
 ## Demographics
 ```{r}
+install.packages("gmodels")
+library(gmodels)
+dfL<-df[df$compliance_level=="L",]
+dfI<-df[df$compliance_level=="I",]
+dfH<-df[df$compliance_level=="H",]
+
 # Number of patients
 # compliance distribution
 table(df$compliance_level)
 
 # Age
-dfL<-df[df$compliance_level=="L",]
-dfI<-df[df$compliance_level=="I",]
-dfH<-df[df$compliance_level=="H",]
-
 aggregate(x = df$age,                
           by = list(df$compliance_level),              
           FUN=function(x) c(mn=mean(x,na.rm=TRUE),sd=sd(x,na.rm=TRUE))) 
 
 # Gender
+table(df$compliance_level)
+table(df$gender, df$compliance_level)
 round(table(dfL$gender)/sum(table(dfL$gender)),3) #0 NA
 round(table(dfI$gender)/sum(table(dfI$gender)),3) #0 NA
 round(table(dfH$gender)/sum(table(dfH$gender)),3) #0 NA
@@ -258,10 +231,14 @@ round(table(dfL$unitdischargestatus)/sum(table(dfL$unitdischargestatus)),3)
 round(table(dfI$unitdischargestatus)/sum(table(dfI$unitdischargestatus)),3)
 round(table(dfH$unitdischargestatus)/sum(table(dfH$unitdischargestatus)),3)
 
+chisq.test(table(df$unitdischargestatus,df$compliance_level),correct = FALSE)
+
 # Hospital mortality (%)
 round(table(dfL$hospitaldischargestatus)/sum(table(dfL$hospitaldischargestatus)),3)
 round(table(dfI$hospitaldischargestatus)/sum(table(dfI$hospitaldischargestatus)),3)
 round(table(dfH$hospitaldischargestatus)/sum(table(dfH$hospitaldischargestatus)),3)
+
+chisq.test(table(df$hospitaldischargestatus,df$compliance_level),correct = FALSE)
 ```
 
 ## Odds ratio
@@ -297,3 +274,66 @@ trans.matrix <- function(X, prob=T)
 transition<-trans.matrix(df1)
 
 ```
+
+Transition mortality
+```{r}
+df1 <- read.csv("day12.csv")
+table(df1$day1_compliance,df1$hospitaldischargestatus)
+
+transition<-function(day1,day2){
+  transition1<-df1[df1$day1_compliance==day1 & df1$day2_compliance==day2,]
+  table2<-table(transition1$hospitaldischargestatus)
+  mortality<-round(table2["Expired"]/sum(table2),3)
+  result1 = paste(day1,day2,"; Mortality:",mortality,"; Number of patients:",table2["Expired"],"/",sum(table2),sep=" ")
+  print(result1)
+  avg<-round(mean(transition1$pfratio),3)
+  result2 = paste("; Mean Pf ratio:",avg,sep=" ")
+  print(result2)
+}
+
+transition("Type L","Type L")
+transition("Type L","Intermediate phenotype")
+transition("Type L","Type H")
+transition("Intermediate phenotype","Type L")
+transition("Intermediate phenotype","Intermediate phenotype")
+transition("Intermediate phenotype","Type H")
+transition("Type H","Type L")
+transition("Type H","Intermediate phenotype")
+transition("Type H","Type H")
+
+# transit to type L
+chisq.test(cbind(c(10,43),c(32,103)),corr=F)
+chisq.test(cbind(c(13,58),c(32,103)),corr=F)
+
+# transit to Intermediate
+chisq.test(cbind(c(3,28),c(68,212)),corr=F)
+chisq.test(cbind(c(15,72),c(68,212)),corr=F)
+
+# transit to type H
+chisq.test(cbind(c(2,17),c(272,907)),corr=F)
+chisq.test(cbind(c(19,75),c(272,907)),corr=F)
+
+
+data<-df1[df1$day1_compliance=="Type L" & df1$day2_compliance=="Type L",]
+data2<-df1[df1$day1_compliance=="Type L" & df1$day2_compliance=="Intermediate phenotype",]
+data3<-df1[df1$day1_compliance=="Type L" & df1$day2_compliance=="Type H",]
+
+t.test(data$pfratio,data3$pfratio)
+t.test(data2$pfratio,data3$pfratio)
+
+data4<-df1[df1$day1_compliance=="Intermediate phenotype" & df1$day2_compliance=="Type L",]
+data5<-df1[df1$day1_compliance=="Intermediate phenotype" & df1$day2_compliance=="Intermediate phenotype",]
+data6<-df1[df1$day1_compliance=="Intermediate phenotype" & df1$day2_compliance=="Type H",]
+
+t.test(data4$pfratio,data6$pfratio)
+t.test(data5$pfratio,data6$pfratio)
+
+data7<-df1[df1$day1_compliance=="Type H" & df1$day2_compliance=="Type L",]
+data8<-df1[df1$day1_compliance=="Type H" & df1$day2_compliance=="Intermediate phenotype",]
+data9<-df1[df1$day1_compliance=="Type H" & df1$day2_compliance=="Type H",]
+
+t.test(data7$pfratio,data9$pfratio)
+t.test(data8$pfratio,data9$pfratio)
+
+```
+
